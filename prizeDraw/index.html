@@ -1,0 +1,848 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<title>年会抽奖</title>
+
+		<script src="../assets/js/jquery-1.10.2.js"></script>
+		<!-- Bootstrap Js -->
+		<script src="../assets/js/bootstrap.min.js"></script>
+		<!-- Bootstrap 核心 CSS 文件 -->
+		<link href="../assets/css/bootstrap.css" rel="stylesheet"/>
+		
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+			}
+			
+			img {
+				display: block;
+			}
+			
+			i {
+				font-style: normal;
+			}
+			
+			.vetically {
+				justify-content: center;
+				align-items: center;
+				display: -webkit-flex;
+			}
+			
+			.prize_con {
+				position: absolute;
+				width: 100%;
+				height: 100%;
+				background: url(images/firstp_bg.jpg) no-repeat left top / 100% 100%;
+				overflow: hidden;
+			}
+			
+			.prize_grade {
+				font-size: 98px;
+				color: #ffe9af;
+				text-align: center;
+				margin: 40px auto 0;
+			}
+			.prize_winner_progress {
+				font-size: 40px;
+				color: #ffe9af;
+				text-align: center;
+				margin: 10px auto 0;
+			}
+			.prize_winner {
+				font-size: 30px;
+				color: #ffe9af;
+				text-align: center;
+				margin: 20px auto 0;
+			}
+			
+			.prize_list {
+				width: 55%;
+				height: 230px;
+				margin: 20px auto 55px;
+				text-align: center;
+				overflow: hidden;
+			}
+			
+			.prize_list ul {
+				width: 100%;
+				font-size: 0;
+			}
+			
+			.prize_list li {
+				display: inline-block;
+				font-size: 45px;
+				color: #f1bf90;
+				text-align: center;
+				width: 20%;
+				line-height: 100px;
+				font-family: Arial;
+			}
+			
+			.start {
+				width: 250px;
+				height: 90px;
+				/*margin: 0 auto;*/
+				cursor: pointer;
+				margin-left: auto;
+				margin-right: auto;
+				margin-top: 120px;
+			}
+			
+			.prize_set {
+				position: absolute;
+				right: 60px;
+				bottom: 140px;
+				font-size: 16px;
+				color: #f7f3e8;
+				line-height: 30px;
+				margin-bottom: -90px;
+			}
+			
+			.prize_set li {
+				display: inline-block;
+				margin-left: 20px;
+			}
+			
+			.set_grade select,
+			.set_people input,
+			.set_money input {
+				background: #fff;
+				width: 110px;
+				height: 36px;
+				border: 1px solid #8f0000;
+				margin-left: .1rem;
+				color: #000;
+				padding-left: 10px;
+			}
+			
+			#id_div_bor_one {
+				width: 500px;
+				height: 300px;
+				margin-right: auto;
+				margin-top: 80px;
+				margin-left: 50px;
+			}
+			
+			#id_div_bor_two {
+				width: 500px;
+				height: 300px;
+				margin-left: auto;
+				margin-top: -300px;
+				margin-right: 350px;
+			}
+		</style>
+
+	</head>
+
+<body>
+
+<div class="wrap">
+	<div class="prize_con">
+		<p class="prize_grade">
+			<span id="idTitleText">一等奖</span> <!--<i>0</i>人</p>-->
+		</p>
+		<p class="prize_winner_progress">
+			<span id="idWinnerProgress"></span>
+		</p>
+		<p class="prize_winner">
+			(
+			<span id="idWinnerText"></span>
+			)
+		</p>
+		<div>
+			<div id="id_div_bor_one">
+				<canvas id="idDivBorOne" width="800px;" height="300px;" ></canvas>
+			</div>
+			<div id="id_div_bor_two">
+				<canvas id="idDivBorTwo" width="800px;" height="300px;" ></canvas>
+			</div>
+		</div>
+
+		<p id="idControlBtn" class="start"><img src="images/prize_start.png" alt=""></p>
+
+		
+		<div class="prize_set">
+			<button id="idQuitPrize" class="btn btn-default">放  弃</button>
+			<li class="set_grade">奖等
+				<select id="idSetGrade">
+				</select>
+			</li>
+		</div>
+	</div>
+</div>
+
+<script>
+	var defaultImage = new Image()
+	defaultImage.src = "images/default.jpg"
+	var switchAudio1 = new Audio("switch.mp3")
+	var switchAudio2 = new Audio("switch.mp3")
+	var switchAudio3 = new Audio("switch.mp3")
+	var switchAudio4 = new Audio("switch.mp3")
+	var winnerAudio = new Audio("winner.mp3")
+	
+	var maxSpeed = 25
+	var stopSpeed = 0
+	var startSpeed = 12
+	var switchValue = 2
+	var accUpSpeed = 18.0
+	var accDownSpeed = -13.0
+	var currSpeed = 0
+	var currValue = 0
+	
+	var currentState = 0		// 0 没有开始没有点结束，1开始，2结束
+	var bkCurrPrizeWinner = null
+	var prizePointIndex = 0
+	var questPointIndex = 0
+	
+	var currentPrizeHolderIndex = -1
+	var lastUpdateTime = 0
+	var deltaTime = 0
+	
+	var isInitOk = false
+	
+	var canvas1 = document.querySelector("#idDivBorOne")
+    var context2D1 = canvas1.getContext("2d")
+    var canvas2 = document.querySelector("#idDivBorTwo")
+    var context2D2 = canvas2.getContext("2d")
+        
+    var drawCounter = 0    
+    var drawPosition = {}
+    var drawPosition2 = {}
+	var imageMap = {}
+	var prizeQuest = []
+	
+	var participantList = [
+		{name:"参与者1",image:"participan/参与者1.png"},
+		{name:"参与者2",image:"participan/参与者2.jpg"},
+	]
+	
+	var prizeHolders = [		
+		{level:0, count:1, name:"一等奖", desc:"Apple iPad 平板电脑 2019年新款10.2英寸 128G WLAN版", price:"1698", winner:[]},			
+		{level:1, count:2, name:"二等奖", desc:"任天堂（Nintendo）switch lite 日版", price:"999", winner:[]},
+		{level:2, count:3, name:"三等奖", desc:"黑爵巧克力cherry轴键盘", price:"399", winner:[]},
+		{level:3, count:5, name:"四等奖", desc:"JBL go2 蓝牙音箱", price:"199", winner:[]},
+		{level:4, count:5, name:"五等奖", desc:"米家台灯", price:"199", winner:[]},
+		{level:5, count:10, name:"六等奖", desc:"华为体脂秤", price:"140", winner:[]},
+		{level:6, count:10, name:"七等奖", desc:"米家迷你保温杯", price:"89", winner:[]},
+	]
+	
+	function initData(callback) {
+		for (var i = 1;i <= 50; i++) {
+			prizeQuest.push({image:"images/MISSION (" + i + ").png"})
+		}
+		
+		// 注释掉重新开始抽奖
+		window.localStorage.removeItem("wyf_prize_data")
+		var data = window.localStorage.getItem("wyf_prize_data")
+		if (data == null) {
+			console.log("没有抽奖历史数据")
+		} else {
+			data = JSON.parse(data)
+			console.log(data)
+			participantList = data.participantList
+			prizeHolders = data.prizeHolders
+		}
+		console.log(participantList)
+		console.log(prizeHolders)
+
+			
+		var counter = 0
+		for (var i = 0; i < participantList.length; i++) {
+			var one = participantList[i]
+			console.log("one = " + one.image)
+			var image = new Image()
+			image.src = one.image
+			image.onload = function() {
+				console.log("counter = " + counter)
+				counter++
+				if (counter == participantList.length + prizeQuest.length) {
+					callback()
+				}
+			}
+			image.onerror = function() {
+				console.log("onerror = " + one.image)
+			}
+			image.onabort = function() {
+				console.log("onabort = " + one.image)
+			}
+			imageMap[one.image] = image
+		}
+		
+		for (var i = 0; i < prizeQuest.length; i++) {
+			var one = prizeQuest[i]
+			console.log("one = " + one.image)
+			var image = new Image()
+			image.src = one.image
+			image.onload = function() {
+				console.log("counter = " + counter)
+				counter++
+				if (counter == participantList.length + prizeQuest.length) {
+					callback()
+				}
+			}
+			image.onerror = function() {
+				console.log("onerror = " + one.image)
+			}
+			image.onabort = function() {
+				console.log("onabort = " + one.image)
+			}
+			imageMap[one.image] = image
+		}
+	}
+	
+	function initDrawPosition(canvasW, canvasH) {
+		
+		// 0
+		drawPosition[0] = {}
+		drawPosition[0].w = canvasW / 3
+		drawPosition[0].h = canvasH
+		drawPosition[0].x = canvasW / 2 - (drawPosition[0].w / 2)
+		drawPosition[0].y = 0
+		
+		// 1
+		drawPosition[1] = {}
+		drawPosition[1].w = canvasW / 4
+		drawPosition[1].h = canvasH * 3 / 4
+		drawPosition[1].x = canvasW / 2 + canvasW / 9
+		drawPosition[1].y = canvasH * 1 / 4 / 2
+		
+		// 2
+		drawPosition[2] = {}
+		drawPosition[2].w = canvasW / 6
+		drawPosition[2].h = canvasH * 3 / 5
+		drawPosition[2].x = canvasW * 3 / 4
+		drawPosition[2].y = canvasH * 1 / 5
+		
+		// 3
+		drawPosition[3] = {}
+		drawPosition[3].w = 0
+		drawPosition[3].h = 0
+		drawPosition[3].x = canvasW
+		drawPosition[3].y = canvasH / 2
+		
+		// -1
+		drawPosition[-1] = {}
+		drawPosition[-1].w = canvasW / 4
+		drawPosition[-1].h = canvasH * 3 / 4
+		drawPosition[-1].x = canvasW / 2 - canvasW / 9 - drawPosition[-1].w
+		drawPosition[-1].y = canvasH * 1 / 4 / 2
+		
+		// -2
+		drawPosition[-2] = {}
+		drawPosition[-2].w = canvasW / 6
+		drawPosition[-2].h = canvasH * 3 / 5
+		drawPosition[-2].x = canvasW * 1 / 4 - drawPosition[-2].w
+		drawPosition[-2].y = canvasH * 1 / 5
+		
+		// 3
+		drawPosition[-3] = {}
+		drawPosition[-3].w = 0
+		drawPosition[-3].h = 0
+		drawPosition[-3].x = 0
+		drawPosition[-3].y = canvasH / 2
+		
+		// 初始化切换参数
+		drawPosition[3].moveW = drawPosition[2].w - drawPosition[3].w
+		drawPosition[3].moveH = drawPosition[2].h - drawPosition[3].h
+		drawPosition[3].moveX = drawPosition[2].x - drawPosition[3].x
+		drawPosition[3].moveY = drawPosition[2].y - drawPosition[3].y
+		
+		drawPosition[2].moveW = drawPosition[1].w - drawPosition[2].w
+		drawPosition[2].moveH = drawPosition[1].h - drawPosition[2].h
+		drawPosition[2].moveX = drawPosition[1].x - drawPosition[2].x
+		drawPosition[2].moveY = drawPosition[1].y - drawPosition[2].y
+		
+		drawPosition[1].moveW = drawPosition[0].w - drawPosition[1].w
+		drawPosition[1].moveH = drawPosition[0].h - drawPosition[1].h
+		drawPosition[1].moveX = drawPosition[0].x - drawPosition[1].x
+		drawPosition[1].moveY = drawPosition[0].y - drawPosition[1].y
+		
+		drawPosition[0].moveW = drawPosition[-1].w - drawPosition[0].w
+		drawPosition[0].moveH = drawPosition[-1].h - drawPosition[0].h
+		drawPosition[0].moveX = drawPosition[-1].x - drawPosition[0].x
+		drawPosition[0].moveY = drawPosition[-1].y - drawPosition[0].y
+		
+		drawPosition[-1].moveW = drawPosition[-2].w - drawPosition[-1].w
+		drawPosition[-1].moveH = drawPosition[-2].h - drawPosition[-1].h
+		drawPosition[-1].moveX = drawPosition[-2].x - drawPosition[-1].x
+		drawPosition[-1].moveY = drawPosition[-2].y - drawPosition[-1].y
+		
+		drawPosition[-2].moveW = drawPosition[-3].w - drawPosition[-2].w
+		drawPosition[-2].moveH = drawPosition[-3].h - drawPosition[-2].h
+		drawPosition[-2].moveX = drawPosition[-3].x - drawPosition[-2].x
+		drawPosition[-2].moveY = drawPosition[-3].y - drawPosition[-2].y
+		
+		console.log(drawPosition)
+	}
+	
+	function initDrawPosition2(canvasW, canvasH) {
+		
+		// 0
+		drawPosition2[0] = {}
+		drawPosition2[0].w = canvasW / 2
+		drawPosition2[0].h = canvasH
+		drawPosition2[0].x = canvasW / 2 - (drawPosition2[0].w / 2)
+		drawPosition2[0].y = 0
+		
+		// 1
+		drawPosition2[1] = {}
+		drawPosition2[1].w = canvasW / 4
+		drawPosition2[1].h = canvasH * 3 / 4
+		drawPosition2[1].x = canvasW / 2 + canvasW / 9
+		drawPosition2[1].y = canvasH * 1 / 4 / 2
+		
+		// 2
+		drawPosition2[2] = {}
+		drawPosition2[2].w = canvasW / 6
+		drawPosition2[2].h = canvasH * 3 / 5
+		drawPosition2[2].x = canvasW * 3 / 4
+		drawPosition2[2].y = canvasH * 1 / 5
+		
+		// 3
+		drawPosition2[3] = {}
+		drawPosition2[3].w = 0
+		drawPosition2[3].h = 0
+		drawPosition2[3].x = canvasW
+		drawPosition2[3].y = canvasH / 2
+		
+		// -1
+		drawPosition2[-1] = {}
+		drawPosition2[-1].w = canvasW / 4
+		drawPosition2[-1].h = canvasH * 3 / 4
+		drawPosition2[-1].x = canvasW / 2 - canvasW / 9 - drawPosition2[-1].w
+		drawPosition2[-1].y = canvasH * 1 / 4 / 2
+		
+		// -2
+		drawPosition2[-2] = {}
+		drawPosition2[-2].w = canvasW / 6
+		drawPosition2[-2].h = canvasH * 3 / 5
+		drawPosition2[-2].x = canvasW * 1 / 4 - drawPosition2[-2].w
+		drawPosition2[-2].y = canvasH * 1 / 5
+		
+		// 3
+		drawPosition2[-3] = {}
+		drawPosition2[-3].w = 0
+		drawPosition2[-3].h = 0
+		drawPosition2[-3].x = 0
+		drawPosition2[-3].y = canvasH / 2
+		
+		// 初始化切换参数
+		drawPosition2[3].moveW = drawPosition2[2].w - drawPosition2[3].w
+		drawPosition2[3].moveH = drawPosition2[2].h - drawPosition2[3].h
+		drawPosition2[3].moveX = drawPosition2[2].x - drawPosition2[3].x
+		drawPosition2[3].moveY = drawPosition2[2].y - drawPosition2[3].y
+		
+		drawPosition2[2].moveW = drawPosition2[1].w - drawPosition2[2].w
+		drawPosition2[2].moveH = drawPosition2[1].h - drawPosition2[2].h
+		drawPosition2[2].moveX = drawPosition2[1].x - drawPosition2[2].x
+		drawPosition2[2].moveY = drawPosition2[1].y - drawPosition2[2].y
+		
+		drawPosition2[1].moveW = drawPosition2[0].w - drawPosition2[1].w
+		drawPosition2[1].moveH = drawPosition2[0].h - drawPosition2[1].h
+		drawPosition2[1].moveX = drawPosition2[0].x - drawPosition2[1].x
+		drawPosition2[1].moveY = drawPosition2[0].y - drawPosition2[1].y
+		
+		drawPosition2[0].moveW = drawPosition2[-1].w - drawPosition2[0].w
+		drawPosition2[0].moveH = drawPosition2[-1].h - drawPosition2[0].h
+		drawPosition2[0].moveX = drawPosition2[-1].x - drawPosition2[0].x
+		drawPosition2[0].moveY = drawPosition2[-1].y - drawPosition2[0].y
+		
+		drawPosition2[-1].moveW = drawPosition2[-2].w - drawPosition2[-1].w
+		drawPosition2[-1].moveH = drawPosition2[-2].h - drawPosition2[-1].h
+		drawPosition2[-1].moveX = drawPosition2[-2].x - drawPosition2[-1].x
+		drawPosition2[-1].moveY = drawPosition2[-2].y - drawPosition2[-1].y
+		
+		drawPosition2[-2].moveW = drawPosition2[-3].w - drawPosition2[-2].w
+		drawPosition2[-2].moveH = drawPosition2[-3].h - drawPosition2[-2].h
+		drawPosition2[-2].moveX = drawPosition2[-3].x - drawPosition2[-2].x
+		drawPosition2[-2].moveY = drawPosition2[-3].y - drawPosition2[-2].y
+		
+		console.log(drawPosition2)
+	}
+	
+	function writeData() {
+		var data = {}
+		data.participantList = participantList
+		data.prizeHolders = prizeHolders
+		window.localStorage.setItem("wyf_prize_data", JSON.stringify(data))
+	}
+	
+	function initSelectView() {
+		var selectView = document.getElementById('idSetGrade')
+		
+		for (var i = 0; i < prizeHolders.length; i++) {
+			//添加一个选项
+			var one = prizeHolders[i]
+			selectView.add(new Option(one.name, i))
+		}
+	}
+	
+	function shuffle(arr) {
+        for (var i=arr.length-1; i>=0; i--) {
+            var rIndex = Math.floor(Math.random()*(i+1));
+            var temp = arr[rIndex];
+            arr[rIndex] = arr[i];
+            arr[i] = temp;
+        }
+        return arr;
+    }
+	
+	function resetWinnerText() {
+		var prizeHolder = prizeHolders[currentPrizeHolderIndex]
+		var names = ""
+		for (var i = 0; i < prizeHolder.winner.length; i++) {
+			names = names + prizeHolder.winner[i] + ","
+		}
+		if (names.length > 0) {
+			names = names.substring(0, names.length - 1)
+		}
+		$('#idWinnerProgress').text(prizeHolder.desc + " x " + prizeHolder.count)
+		$("#idWinnerText").text(names)
+	}
+	
+	function updateView() {
+		var prizeHolder = prizeHolders[currentPrizeHolderIndex]
+		
+		$("#idTitleText").text(prizeHolder.name)
+		$("#idControlBtn").find("img").attr("src", "images/prize_start.png")
+		
+		resetWinnerText()
+		
+		var selectView = document.getElementById('idSetGrade')
+		selectView.selectedIndex = currentPrizeHolderIndex
+		
+		if (currentState == 0) {
+			$("#idControlBtn").find("img").attr("src", "images/prize_start.png")
+		} else if (currentState == 1) {
+			$("#idControlBtn").find("img").attr("src", "images/prize_stop.png")
+		}
+	}
+	
+	function localDraw(context, pos, image, drawTag) {
+		var drawPos = drawPosition[pos]
+		if (drawTag == 1) {
+			drawPos = drawPosition[pos]
+		} else {
+			drawPos = drawPosition2[pos]
+		}
+		//console.log(pos, drawPos)
+		
+		var scale = currValue / switchValue
+		var offsetX = scale * drawPos.moveX
+		var offsetY = scale * drawPos.moveY
+		var offsetW = scale * drawPos.moveW
+		var offsetH = scale * drawPos.moveH
+		
+		context.drawImage(image, drawPos.x + offsetX, drawPos.y + offsetY, drawPos.w + offsetW, drawPos.h + offsetH)
+	}
+	
+	function getParticipantImage(index) {
+		if (participantList.length <= 0) {
+			return defaultImage
+		} else {
+			return imageMap[participantList[(index + (participantList.length * 10)) % participantList.length].image]
+		}
+	}
+	
+	function updateDraw() {
+		var image
+		if (drawCounter % 2 == 0) {
+			context2D1.clearRect(0, 0, canvas1.width, canvas1.height)
+			console.log(participantList[prizePointIndex])
+			image = getParticipantImage(prizePointIndex - 3)
+			localDraw(context2D1, -3, image, 1)
+		
+			image = getParticipantImage(prizePointIndex - 2)
+			localDraw(context2D1, -2, image, 1)
+		
+			image = getParticipantImage(prizePointIndex - 1)
+			localDraw(context2D1, -1, image, 1)
+		
+			image = getParticipantImage(prizePointIndex + 3)
+			localDraw(context2D1, 3, image, 1)
+			
+			image = getParticipantImage(prizePointIndex + 2)
+			localDraw(context2D1, 2, image, 1)
+		
+			image = getParticipantImage(prizePointIndex + 1)
+			localDraw(context2D1, 1, image, 1)
+		
+			image = getParticipantImage(prizePointIndex)
+			localDraw(context2D1, 0, image, 1)
+		}
+		
+		if (drawCounter % 2 == 1) {
+			context2D2.clearRect(0, 0, canvas2.width, canvas2.height)
+			image = imageMap[prizeQuest[(questPointIndex - 3 + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, -3, image)
+			
+			image = imageMap[prizeQuest[(questPointIndex - 2 + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, -2, image)
+			
+			image = imageMap[prizeQuest[(questPointIndex - 1 + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, -1, image)
+			
+			image = imageMap[prizeQuest[(questPointIndex + 3 + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, 3, image)
+			
+			image = imageMap[prizeQuest[(questPointIndex + 2 + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, 2, image)
+			
+			image = imageMap[prizeQuest[(questPointIndex + 1 + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, 1, image)
+			
+			image = imageMap[prizeQuest[(questPointIndex + prizeQuest.length) % prizeQuest.length].image]
+			localDraw(context2D2, 0, image)
+		}
+		drawCounter = drawCounter + 1
+	}
+	
+	function quitPrize() {
+		console.log("quitPrize", bkCurrPrizeWinner)
+		if (bkCurrPrizeWinner != null) {
+			var prizeHolder = prizeHolders[currentPrizeHolderIndex]
+			console.log("quitPrize", prizeHolder)
+			for (var i = 0; i < prizeHolder.winner.length; i++) {
+				var one = prizeHolder.winner[i]
+				console.log(one, bkCurrPrizeWinner.name)
+				if (one == bkCurrPrizeWinner.name) {
+					prizeHolder.winner.splice(i, 1)
+					bkCurrPrizeWinner = null
+					resetWinnerText()
+					// 写数据库
+					writeData()
+					return
+				}
+			}
+		}
+	}
+	
+	function chosenOne() {
+		currValue = 0
+		winnerAudio.play()
+		updateDraw()
+		updateDraw()
+		
+		// 中奖
+		var winner = participantList[prizePointIndex]
+		var prizeHolder = prizeHolders[currentPrizeHolderIndex]
+		prizeHolder.winner.push(winner.name)
+		bkCurrPrizeWinner = winner
+		participantList.splice(prizePointIndex, 1)
+		console.log("中将: " + winner)
+		console.log("还剩: " + participantList.length)
+		console.log(participantList)
+		
+		resetWinnerText()
+		
+		// 写数据库
+		writeData()
+	}
+	
+	function selectPrizeHolder(level) {
+		if (currentState != 0) {
+			console.log("not pause")
+			return
+		}
+	
+		if (currentPrizeHolderIndex == level) {
+			console.log("same level")
+		} else {
+			currentPrizeHolderIndex = level	
+		}
+		
+		prizePointIndex = 0
+		questPointIndex = 0
+		
+		shuffle(participantList)
+		shuffle(prizeQuest)
+		
+		updateDraw()
+		updateDraw()
+		updateView()
+	}
+	
+	function showToast(msg, duration) {  
+        duration=isNaN(duration)?3000:duration  
+        var m = document.createElement('div')  
+        m.innerHTML = msg  
+        m.style.cssText="width:60%; min-width:180px; background:#000; opacity:0.6; height:auto;min-height: 30px; color:#fff; line-height:30px; text-align:center; border-radius:4px; position:fixed; top:60%; left:20%; z-index:999999;";  
+        document.body.appendChild(m)  
+        setTimeout(function() {  
+            var d = 0.5  
+            m.style.webkitTransition = '-webkit-transform ' + d + 's ease-in, opacity ' + d + 's ease-in'  
+            m.style.opacity = '0'  
+            setTimeout(function() { document.body.removeChild(m) }, d * 1000)  
+        }, duration)  
+    }  
+	
+	function runWheel() {
+		if (participantList.length <= 0) {
+			showToast("没人了...")
+			return
+		}
+		
+		var prizeHolder = prizeHolders[currentPrizeHolderIndex]
+		if (prizeHolder.winner.length >= prizeHolder.count) {
+			showToast("该奖品已经发完...")
+			return
+		}
+		
+		bkCurrPrizeWinner = null
+	
+		currValue = switchValue
+		currSpeed = startSpeed
+		lastUpdateTime = new Date().getTime()
+		currentState = 1
+		prizePointIndex = 0
+		questPointIndex = 0
+		
+		shuffle(participantList)
+		shuffle(prizeQuest)
+		
+		updateView()
+	}
+	
+	function stopWheel() {
+		lastUpdateTime = new Date().getTime()
+		currentState = 2
+		updateView()
+	}
+	
+	function clickControlButton() {
+		if (currentState == 1) {
+			stopWheel()
+		} else if (currentState == 0) {
+			runWheel()
+		}
+	}
+	
+	var audioCounter = 0
+	function playAudio() {
+		if (audioCounter % 4 == 0) {
+			switchAudio1.play()
+		} else if (audioCounter % 4 == 1) {
+			switchAudio2.play()
+		} else if (audioCounter % 4 == 2) {
+			switchAudio3.play()
+		} else {
+			switchAudio4.play()
+		}
+		audioCounter = audioCounter + 1
+	}
+	
+	function updateFrame() {
+		var time = new Date().getTime()
+		var localDeltaTime = time - lastUpdateTime
+		
+		if (currentState == 0) {
+			
+		} else if (currentState == 1) {
+			updateDraw()
+			
+			deltaTime = deltaTime + (time - lastUpdateTime)
+			
+			if (currValue > switchValue) {
+				prizePointIndex++
+				prizePointIndex = prizePointIndex % participantList.length
+				questPointIndex++
+				questPointIndex = questPointIndex % prizeQuest.length
+				currValue = currValue - switchValue
+				playAudio()
+			}
+			currValue = currValue + (currSpeed * localDeltaTime / 1000.0)
+			currSpeed = currSpeed + (accUpSpeed * localDeltaTime / 1000.0)
+			
+			if (currSpeed > maxSpeed) {
+				currSpeed = maxSpeed
+			} 
+			
+		} else if (currentState == 2) {
+			updateDraw()
+			
+			deltaTime = deltaTime + (time - lastUpdateTime)
+			
+			if (currValue > switchValue) {
+				prizePointIndex++
+				prizePointIndex = prizePointIndex % participantList.length
+				questPointIndex++
+				questPointIndex = questPointIndex % prizeQuest.length
+				currValue = currValue - switchValue
+				playAudio()
+			}
+			currValue = currValue + (currSpeed * localDeltaTime / 1000.0)
+			currSpeed = currSpeed + (accDownSpeed * localDeltaTime / 1000.0)
+			
+			if (currSpeed < stopSpeed) {
+				if (currValue > switchValue * 1 / 4) {
+					prizePointIndex++
+					prizePointIndex = prizePointIndex % participantList.length
+					questPointIndex++
+					questPointIndex = questPointIndex % prizeQuest.length
+					currValue = 0
+					playAudio()
+				}
+				currSpeed = 0
+				// 选中
+				chosenOne()
+				currentState = 0
+			}
+		}
+		
+		
+		//console.log("currValue " + currValue)
+		//console.log("currSpeed " + currSpeed)
+		lastUpdateTime = time
+		window.requestAnimationFrame(updateFrame)
+	}
+	
+	console.log("start html init")
+	
+	function startUpdateFrame() {
+		updateFrame()
+	}
+	$(function() {
+		initDrawPosition(canvas1.width, canvas1.height)
+		initDrawPosition2(canvas2.width, canvas2.height)
+		initData(function() {
+			console.log("数据初始化完成")
+			initSelectView()
+			selectPrizeHolder(prizeHolders.length - 1)
+			isInitOk = true
+		})
+		
+	
+		$("#idSetGrade").change(function() {
+			var value = document.getElementById("idSetGrade").value
+			console.log("choose level : " + value)
+			selectPrizeHolder(parseInt(value))
+			updateView()
+		})
+        
+		$("#idControlBtn").click(function() {
+			clickControlButton()
+		})
+		
+		$("#idQuitPrize").click(function() {
+			var ok = window.confirm("放弃后将失去奖品，并且不能在抽奖，确定要放弃吗？");
+		　　if(ok == true) {
+				quitPrize()
+			} else {
+				
+			}
+		})
+		
+		
+		
+		startUpdateFrame()
+		
+	})
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,19 @@
+/*web background*/  
+.cl-container{  
+    transform: translateY(125%);
+}  
+
+.st-error {
+    visibility:hidden
+}
+
+.cl-row{  
+}  
+/* centered columns styles */  
+.cl-row-centered {  
+}  
+.cl-col-centered {
+    margin: 0 auto;
+    display:block;  
+    float:none; 
+}  

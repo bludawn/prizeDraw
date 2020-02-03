@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>小猴跳跳弹幕</title>
+    <!-- jQuery Js -->
+    <script src="../assets/js/jquery-1.10.2.js"></script>
+    <!-- Bootstrap Js -->
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <!-- Bootstrap 核心 CSS 文件 -->
+    <link href="../assets/css/bootstrap.css" rel="stylesheet"/>
+    
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+
+<body>
+
+<div style="position:absolute;overflow:hidden;width:100%;height:100%">
+    <img src="background.png"/>
+</div>
+
+<div id="idCanvasDiv" style="position:absolute;overflow:hidden;width:100%;height:100%" >
+</div>
+<div style="position:absolute; bottom:0; right:0;">
+    <img style="" src="./qrcode.jpg"/>
+</div>
+
+
+<script>
+    var nodeList = []
+    var canvas
+    var context2D
+    var minSpeed = 100 
+    var maxSpeed = 300
+    var fps = 60
+    var imgMaxWidth
+    var imgMaxHeight
+    var ws
+    var pingTime = new Date().getTime()
+    var lastTime = 0
+    var autoExpire = 10000
+    console.log("current time " + pingTime)
+    
+    
+    var textColorSet = [
+        "#fefefe", "#e30212", "#faf500", "#009947", "#059fe7", "#e30081", "#91c604", //"#003079", 
+        "#efac27", "#633a7c", "#8e7b36"
+    ] 
+    var textStrokeColor = "000000"
+    
+    function initCanvas() {
+        console.log( window.innerWidth,  window.innerHeight)
+        var myCanvas = document.createElement("canvas")
+        myCanvas.setAttribute("width", window.innerWidth)
+        myCanvas.setAttribute("height", window.innerHeight)
+        myCanvas.setAttribute("id", "idCanvas")
+        var divNode = document.getElementById("idCanvasDiv")
+        divNode.appendChild(myCanvas)
+        
+        canvas = document.querySelector("#idCanvas")
+        context2D = canvas.getContext("2d")
+        
+        imgMaxWidth = 1/2 * window.innerWidth
+        imgMaxHeight = 3/5 * window.innerHeight
+    }
+    
+    function updateDraw() {
+        for (var i = 0; i < nodeList.length; i++) {
+            var node = nodeList[i]
+            if (node.lType == "image") {
+                node.lDraw()
+            }
+        }
+        for (var i = 0; i < nodeList.length; i++) {
+            var node = nodeList[i]
+            if (node.lType == "text") {
+                node.lDraw()
+            }
+        }
+    }
+    
+    function move(node, offset) {
+        node.lMoveFunc(offset)
+        if (node.lPosX < -node.lWidth) {
+            return false
+        } else {
+            return true
+        }
+    }
+    
+    var imageHolder = {}
+    function getImage(url) {
+        var image = imageHolder[url]
+        if (typeof(image) == "undefined") {
+            image = new Image()
+            imageHolder[url] = image
+        } 
+        
+        return image
+    }
+    
+    function createBarrageImage(url) {
+        var img = new Image()
+        img.onload = function() {
+            nodeList.push(img)
+            img.lWidth = img.width
+            img.lHeight = img.height
+            console.log("lWidth = " + img.lWidth)
+            
+            var scale = 1
+            if (img.lWidth > img.lHeight && img.lWidth > imgMaxWidth) {
+                scale = imgMaxWidth / img.lWidth
+            }
+            if (img.lWidth < img.lHeight && img.lHeight > imgMaxHeight) {
+                scale = imgMaxHeight / img.lHeight
+            }
+            img.lScale = scale
+        }
+        img.src = url
+        
+        var node = img
+        node.lType = "image"
+        node.lPosX = window.innerWidth
+        node.lPosY = window.innerHeight * Math.random() * 0.5 + 50
+        
+        var speed = Math.random() * ((maxSpeed - minSpeed) / fps) + (minSpeed / fps)
+        
+        node.lMoveSpeed = -1 * speed
+        node.lMoveFunc = function(offset) {
+            node.lPosX = node.lPosX + offset
+        }
+        node.lDraw = function() {
+            context2D.translate(node.lPosX, node.lPosY)
+            context2D.drawImage(img, 0, 0, node.lWidth * node.lScale, node.lHeight * node.lScale)
+            context2D.translate(-node.lPosX, -node.lPosY)
+        }
+    }
+    
+    function createBarrageText(text) {
+        var node = {}
+        node.text = text
+        
+        var rate = 1 + text.length / 50
+        rate = Math.min(rate, 3)
+        var baseFontSize = 28
+        node.fontSize = Math.max(rate * baseFontSize, baseFontSize)
+        var colorIndex = parseInt(Math.random() * textColorSet.length)
+        node.fontColor = textColorSet[colorIndex]
+        
+        node.lWidth = text.length * node.fontSize
+        console.log("lWidth = " + node.lWidth)
+        
+        node.lType = "text"
+        node.lPosX = window.innerWidth
+        node.lPosY = window.innerHeight * Math.random() * 0.8 + 50
+        
+        var speed = Math.random() * ((maxSpeed - minSpeed) / fps) + (minSpeed / fps)
+        
+        node.lMoveSpeed = -1 * speed
+        node.lMoveFunc = function(offset) {
+            node.lPosX = node.lPosX + offset
+        }
+        
+        node.lDraw = function() {
+            context2D.font = node.fontSize + "px sans-serif"
+            var texts = node.text.split('\n')
+            for (var i = 0; i < texts.length; i++) {
+                context2D.translate(node.lPosX, node.lPosY + i * node.fontSize + 10)
+                context2D.fillStyle = node.fontColor
+                context2D.fillText(texts[i], 0, 0)
+                context2D.fillStyle = textStrokeColor
+                context2D.strokeText(texts[i], 0, 0)
+                context2D.translate(-node.lPosX, -(node.lPosY + i * node.fontSize + 10))
+            }
+        }
+        
+        nodeList.push(node)
+    }
+    
+    function createBarrage(data) {
+        autoExpire = 10000
+        lastTime = new Date().getTime()
+        if (data.msgType == "text") {
+            createBarrageText(data.msg)
+        } else if (data.msgType == "image") {
+            createBarrageImage(data.msg)
+        } else {
+            // drop
+        }
+    }
+
+    function updateTasker() {
+        //console.log("nodeList length " + nodeList.length)
+        
+        for (var i = 0; i < nodeList.length; i++) {
+            var node = nodeList[i]
+            //console.log(node)
+            if (!move(node, node.lMoveSpeed)) {
+                nodeList.splice(i, 1)
+                i--
+            }
+        }
+        
+        context2D.clearRect(0, 0, window.innerWidth, window.innerHeight)
+        context2D.save()
+        updateDraw()
+        context2D.restore()
+        
+        window.requestAnimationFrame(updateTasker)
+        
+        // ping
+        var deltaTime = new Date().getTime() - pingTime
+        // console.log("deltaTime = " + deltaTime)
+        if (deltaTime > 15000) {
+            pingTime = new Date().getTime()
+            console.log("send ping data")
+            ws.send(JSON.stringify({id:0,type:32,data:{type:0, eventType:16, actionCode:0, body:""}}))
+        }
+        
+        robot()
+    }
+
+    function worldRun() {
+        window.requestAnimationFrame(updateTasker)
+    }
+    
+    function processReceivedMsg(msgData) {
+        createBarrage(msgData)
+    }
+    
+    function randomString(len) {
+        len = len || 32;
+        var chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678'
+        var maxPos = chars.length
+        var str = ''
+        for (i = 0; i < len; i++) {
+            str += chars.charAt(Math.floor(Math.random() * maxPos))
+        }
+        return str
+    }
+    
+    var userid = randomString(16)
+    var ulaid = userid + "/0"
+    function initWebsocket() {
+        // websocket
+        ws = new WebSocket("ws://localhost:9101")
+        
+        ws.onopen = function()  {
+            console.log("链接已经打开")
+            ws.send(JSON.stringify({from:ulaid, type:0, id:0, data:{type:0,protocolVersion:0,extra:"{\"game\":\"not game\"}"}}))
+            ws.lIsOpen = true
+        }
+        
+        ws.onmessage = function (evt) { 
+            var data = evt.data
+            data = JSON.parse(data)
+            console.log(data)
+            
+            if (data.type == 32 && data.data.eventType == 2000) {
+                var body = data.data.body
+                var bodyTable = JSON.parse(body)
+                processReceivedMsg(bodyTable)
+            }
+        }
+        
+        ws.onclose = function() { 
+            ws.lIsOpen = false
+            console.log("连接已关闭...")
+            initWebsocket()
+        }
+    }
+
+    var contents = [
+        {msgType:"text",msg:"哈喽！"},
+        {msgType:"text",msg:"小宝贝快来呀~"},
+        {msgType:"text",msg:"这\n是\n一\n条\n从\n上\n往\n下\n的\n弹\n幕\n!"},
+        {msgType:"text",msg:"　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n　　　十十十十十十十十　　 \n　　　十十十十十十十十　　 \n　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n"},
+        {msgType:"text",msg:"好无聊~"},
+        {msgType:"text",msg:"快来发弹幕呀~"},
+        {msgType:"text",msg:"好厉害的弹幕！"},
+        
+        {msgType:"image",msg:"../prizeDraw/participan/参与者1.png"},
+        {msgType:"image",msg:"../prizeDraw/participan/参与者2.png"},
+        
+    ]
+    
+    
+    function robot() {
+        if (new Date().getTime() - lastTime > autoExpire) {
+            processReceivedMsg(contents[parseInt(Math.random() * contents.length)])
+            autoExpire = 5000
+        }
+    }
+    
+    $(function () {
+        initCanvas()
+        initWebsocket()
+        worldRun()
+        
+        processReceivedMsg({msgType:"text",msg:"　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n　　　十十十十十十十十　　 \n　　　十十十十十十十十　　 \n　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n　　　　　　十十　　　　　　\n"})  
+    })
+    
+    
+</script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>竞速答题控制台</title>
+    <script src="../assets/js/jquery-1.10.2.js"></script>
+    <!-- Bootstrap Js -->
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <!-- Bootstrap 核心 CSS 文件 -->
+    <link href="../assets/css/bootstrap.css" rel="stylesheet"/>
+    <!-- FontAwesome Styles-->
+    <link href="../assets/css/font-awesome.css" rel="stylesheet" />
+    <!-- Custom Styles-->
+    <link href="../assets/css/custom-styles.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+</head>
+<body>
+
+<div class="row alert alert-success" style="text-align:center;margin:100px auto;width:400px; height:100%;">
+    <div class="col-md-6">
+        <div>
+            <h3 id="">竞速答题</h3>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <button id="idStartButton" type="button" class="btn btn-success btn-circle">开始
+        </button>
+
+    </div>
+    <div class="col-md-2">
+        <button id="idSortRank" type="button" class="btn btn-info btn-circle">排序
+        </button>
+    </div>
+    <div class="col-md-2">
+        <button id="idResetButton" type="button" class="btn btn-warning btn-circle">重置
+        </button>
+    </div>
+</div>
+
+<div style="text-align:center;margin:0px auto; width:60%; height:100%;">
+    <div class="col-md-6" style="text-align:left;margin:0px auto; width:100%; height:100%;">
+        <!--    Context Classes  -->
+        <div class="panel panel-default">
+    
+            <div id="idHeadShow" class="panel-heading">
+                竞速答题排行榜
+            </div>
+    
+            <div class="panel-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>姓名</th>
+                            <th>得分</th>
+                            <th>正确</th>
+                            <th>错误</th>
+                            <th>结束</th>
+                        </tr>
+                        </thead>
+                        
+                        <tbody id="idRankBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!--  end  Context Classes  -->
+    </div>
+</div>
+<div style="position:absolute; bottom:0; right:0;">
+    <img style="" src="./qrcode.png"/>
+</div>
+
+
+<script>
+    var ACTION_CODE_ADD_SCORE = 0
+    var ACTION_CODE_SUB_SCORE = 1
+    var ACTION_CODE_GET_QUEST_ID = 2
+    var ACTION_CODE_GET_QUEST_STATE = 3
+    var ACTION_CODE_START = 4
+    var ACTION_CODE_GET_SCORES = 5
+    var ACTION_CODE_UPDATE_SCORES = 6
+    var ACTION_CODE_CREATE_QUEST = 7
+    var ACTION_CODE_QUEST_DONE = 8
+    var ACTION_CODE_ALL_PARTICIPAN = 9
+    var ACTION_CODE_UPDATE_PARTICIPAN = 10
+    var ACTION_CODE_SET_NAME = 11
+    
+    var ws 
+    var userid = "quickanswer_admin"
+    var ulaid = userid + "/0"
+    var participanList = []
+    var rankItemViews = []
+    
+    function initWebsocket(callback) {
+        // websocket
+        ws = new WebSocket("ws://" + window.location.host)
+        ws.onopen = function()  {
+            console.log("链接已经打开")
+            ws.send(JSON.stringify({from:ulaid, type:0, id:0, data:{type:0,protocolVersion:0,extra:"{\"game\":\"quickanswer\"}"}}))
+            ws.lIsOpen = true
+        }
+        
+        ws.onmessage = function (evt) { 
+            var data = evt.data
+            data = JSON.parse(data)
+            //console.log("onmessage", data)
+            
+            if (data.type == 0) {
+                callback(0)
+            }
+            
+            if (data.type == 32 && data.data.eventType == 3000 && data.data.actionCode == ACTION_CODE_UPDATE_PARTICIPAN) {
+                var updateData = JSON.parse(data.data.body)
+                processParticipanData(updateData)
+            }
+        }
+        
+        ws.onclose = function() { 
+            ws.lIsOpen = false
+            console.log("连接已关闭...")
+            callback(1)
+            initWebsocket(callback)
+        }
+    }
+    
+    function httpRequest(actionCode, data, async, callback) {
+        data.actionCode = actionCode
+        
+        $.ajaxSettings.async = async
+        $.post("../xhtt/quick_answer", data,
+        function (data, textStatus) {
+            console.log(data, textStatus)
+            if (textStatus == "success") {
+                callback(data)
+            }
+        }, "json");
+    }
+    
+    
+    function resetQuestActivity() {
+        httpRequest(ACTION_CODE_CREATE_QUEST, {}, true, function(data){
+            console.log("重置结束", data)
+            participanList = []
+            clearAllParticipanView()
+        })
+    }
+    
+    function startQuestActivity() {
+        httpRequest(ACTION_CODE_START, {}, true, function(data){
+            console.log("开始答题", data)
+        })
+    }
+    
+    function createParticipanView(data) {
+        var element = document.createElement("tr")
+        element.id = "idItem_" + (participanList.length) 
+        data.el = element
+        var parent = document.getElementById("idRankBody")
+        parent.appendChild(element)
+        rankItemViews.push(element)
+        updateParticipanView(data)
+        document.getElementById("idHeadShow").innerHTML = "竞速答题排行榜: " + participanList.length
+    }
+    
+    function clearAllParticipanView() {
+        rankItemViews = []
+        document.getElementById("idRankBody").innerHTML = ''
+        document.getElementById("idHeadShow").innerHTML = "竞速答题排行榜: " + participanList.length
+    }
+    
+    function updateParticipanView(data) {
+    
+        updateAllParticipanView()
+    }
+    
+    function updateAllParticipanView() {
+        for (var i = 0; i < participanList.length; i++) {
+            var data = participanList[i]
+            //if (i == 0) {
+            //    data.el.className = 'warning'
+            //} else if (i == 1) {
+            //    data.el.className = 'success'
+            //} else if (i == 2) {
+            //    data.el.className = 'info'
+            //} else {
+            //    data.el.className = ''
+            //}
+            if (data.done == true) {
+                data.el.className = 'success'
+            } else {
+                data.el.className = ''
+            }
+            data.el.innerHTML = '<td>' + (i+1) + '</td>' + 
+                '<td>' + data.name + '</td>' + 
+                '<td>' + data.score + '</td>' + 
+                '<td>' + data.right + '</td>' + 
+                '<td>' + data.wrong + '</td>' +
+                '<td>' + data.done + '</td>';
+        }
+    }
+    
+    function processParticipanData(data) {
+        console.log(data)
+        for (var i = 0; i < participanList.length; i++) {
+            var one = participanList[i]
+            console.log(one.name, data.name)
+            if (one.name == data.name) {
+                for (key in data) {
+                    participanList[i][key] = data[key]
+                }
+                updateParticipanView(participanList[i])
+                return
+            }
+        }
+        
+        participanList.push(data)
+        createParticipanView(data)
+    }
+    
+    function processParticipanDatas(mapData) {
+        for (key in mapData) {
+            var one = mapData[key]
+            processParticipanData(one)
+        }
+    }
+    
+    function getParticipans() {
+        httpRequest(ACTION_CODE_ALL_PARTICIPAN, {}, false, function(data){
+            console.log("开始答题", data)
+            processParticipanDatas(data)
+        })
+    }
+    
+    function sendPing() {
+        if (ws.lIsOpen == true) {
+            ws.send(JSON.stringify({id:0,type:32,data:{type:0, eventType:16, actionCode:0, body:""}}))
+        }
+        setTimeout(function(){
+            sendPing()
+        }, 15000)
+    }
+    
+    function sortRank() {
+        participanList.sort(function(a, b){
+            //console.log(a, b)
+            return -(a.score - b.score)
+        })
+        
+        console.log(rankItemViews)
+        for (var i = 0; i < participanList.length; i++) {
+            var one = participanList[i]
+            one.el = rankItemViews[i]
+        }
+        
+        console.log(participanList)
+        //clearAllParticipanView()
+        updateAllParticipanView()
+    }
+    
+    $(function() {
+        initWebsocket(function(retCode){
+            if (retCode == 0) {
+                getParticipans()
+                sendPing()
+            } else {
+            }
+        })
+        
+        
+        $("#idResetButton").click(function () {
+            var ok = window.confirm("重置后将丢弃当前答题数据，确认？");
+		　　if (ok == true) {
+				resetQuestActivity()
+			}
+        })
+        $("#idSortRank").click(function () {
+            sortRank()
+        })
+        $("#idStartButton").click(function () {
+            startQuestActivity()
+        })
+    })
+    
+</script>
+
+</body>
+</html>

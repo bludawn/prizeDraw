@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>答题大比拼</title>
+    <!-- jQuery Js -->
+    <script src="../assets/js/jquery-1.10.2.js"></script>
+    <!-- Bootstrap Js -->
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <!-- 题库 -->
+    <script src="questions.js"></script>
+    <!-- Bootstrap 核心 CSS 文件 -->
+    <link href="../assets/css/bootstrap.css" rel="stylesheet"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+
+<div id="page-wrapper"  >
+    <div id="page-inner" style="text-align:left;margin:0 auto; width:1080px; height:100%;">
+        <!-- /. ROW  -->
+
+        <br>
+        <br>
+
+        <div class="row">
+
+            <div class="col-md-12">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 id="idQuestContent">题目？</h3>
+                    </div>
+
+                    <div class="panel-body">
+                        <div id="btnChooseA" class="alert alert-info" style="font-size:20px">
+                            <strong>A. </strong> 选择A
+                        </div>
+                        <div id="btnChooseB" class="alert alert-info" style="font-size:20px">
+                            <strong>B. </strong> 选择B
+                        </div>
+                        <div id="btnChooseC" class="alert alert-info" style="font-size:20px">
+                            <strong>C. </strong> 选择C
+                        </div>
+                        <div id="btnChooseD" class="alert alert-info" style="font-size:20px">
+                            <strong>D. </strong> 选择D
+                        </div>
+                        <div class="row" style="">
+                            <div class="col-md-6">
+                                <div style="text-align:left;margin:0 auto;">
+                                    <button id="btnPreQuest" class="btn btn-default">上一题</button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div style="text-align:right;margin:0 auto;">
+                                    <button id="btnNextQuest" class="btn btn-default">下一题</button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+    var quests = []
+    var questIndex = 0
+    var quest = quests[questIndex]
+    
+    function readJSON(file, callback) {  
+        var ajax = new XMLHttpRequest();  
+        ajax.overrideMimeType("application/json");  
+        ajax.open("GET", file, true);  
+        ajax.onreadystatechange = function() {  
+            if (ajax.readyState === 4 && ajax.status == "200") {
+                callback(ajax.responseText);
+            }  
+        }  
+        ajax.send(null);  
+    }
+    
+    function getBtnIdByChoose(choose) {
+        return "btn" + choose.replace("c", "C")
+    }
+    function updateQuest() {
+        var domTheme = document.getElementById("idQuestContent")
+        domTheme.innerHTML  = quest.content
+        
+        domTheme = document.getElementById("btnChooseA")
+        domTheme.className = "alert alert-info"
+        domTheme.innerHTML  = '<strong>A. </strong>' + quest.chooseA
+        
+        domTheme = document.getElementById("btnChooseB")
+        domTheme.className = "alert alert-info"
+        domTheme.innerHTML  = '<strong>B. </strong>' + quest.chooseB
+        
+        domTheme = document.getElementById("btnChooseC")
+        domTheme.className = "alert alert-info"
+        domTheme.innerHTML  = '<strong>C. </strong>' + quest.chooseC
+        
+        domTheme = document.getElementById("btnChooseD")
+        domTheme.className = "alert alert-info"
+        domTheme.innerHTML  = '<strong>D. </strong>' + quest.chooseD
+    }
+    function updateQuestState() {
+        if (typeof(quest.chosen) == "undefined") {
+            // 没有选择
+        } else {
+            // 已经选择过
+            if (quest.chosen == quest.rightChoice) {
+                // 绿色
+                var btnId = getBtnIdByChoose(quest.rightChoice)
+                var domTheme = document.getElementById(btnId)
+                domTheme.className = "alert alert-success"
+            } else {
+                // 绿色
+                var btnId = getBtnIdByChoose(quest.rightChoice)
+                var domTheme = document.getElementById(btnId)
+                domTheme.className = "alert alert-success"
+                // 红色
+                btnId = getBtnIdByChoose(quest.chosen)
+                domTheme = document.getElementById(btnId)
+                domTheme.className = "alert alert-danger"
+            }
+        }
+    }
+    
+    function clickAnswer(choose) {
+        if (typeof(quest.chosen) == "undefined") {
+            quest.chosen = choose
+            var audio
+            if (quest.chosen == quest.rightChoice) {
+                audio = new Audio("right" + (parseInt(Math.random() * 1)+1) + ".wav")
+            } else {
+                audio = new Audio("error.wav")
+            }
+            audio.play()
+            updateQuest()
+            updateQuestState()
+        }
+    }
+    
+    function showToast(msg, duration) {  
+        duration=isNaN(duration)?3000:duration  
+        var m = document.createElement('div')  
+        m.innerHTML = msg  
+        m.style.cssText="width:60%; min-width:180px; background:#000; opacity:0.6; height:auto;min-height: 30px; color:#fff; line-height:30px; text-align:center; border-radius:4px; position:fixed; top:60%; left:20%; z-index:999999;";  
+        document.body.appendChild(m)  
+        setTimeout(function() {  
+            var d = 0.5  
+            m.style.webkitTransition = '-webkit-transform ' + d + 's ease-in, opacity ' + d + 's ease-in'  
+            m.style.opacity = '0'  
+            setTimeout(function() { document.body.removeChild(m) }, d * 1000)  
+        }, duration)  
+    }  
+
+    function preQuest() {
+        if (questIndex == 0) {
+            showToast("前面没有啦~~~")
+        } else {
+            questIndex--
+            quest = quests[questIndex]
+            updateQuest()
+            updateQuestState()
+        }
+    }
+    
+    function nextQuest() {
+        if (questIndex == quests.length - 1) {
+            showToast("后面没有啦~~~")
+        } else {
+            questIndex++
+            quest = quests[questIndex]
+            updateQuest()
+            updateQuestState()
+        }
+    }
+    
+    function shuffle(arr) {
+        for (var i=arr.length-1; i>=0; i--) {
+            var rIndex = Math.floor(Math.random()*(i+1));
+            var temp = arr[rIndex];
+            arr[rIndex] = arr[i];
+            arr[i] = temp;
+        }
+        return arr;
+    }
+    
+    $(function () {
+        //readJSON("questions.json", function(data){
+            //var jsonTable = JSON.parse(data)
+            var temp = getQuestData()//jsonTable.data
+            //console.log(temp)
+            for (key in temp) {
+                var one = temp[key]
+                one.rightChoice = "choose" + one.rightChoice.toUpperCase()
+                quests.push(temp[key])
+            }
+            console.log(quests)
+            shuffle(quests)
+            
+            questIndex = 0
+            quest = quests[questIndex]
+            
+            updateQuest()
+            updateQuestState()
+        //})
+        
+        $("#btnChooseA").click(function () {
+            clickAnswer("chooseA")
+        })
+        $("#btnChooseB").click(function () {
+            clickAnswer("chooseB")
+        })
+        $("#btnChooseC").click(function () {
+            clickAnswer("chooseC")
+        })
+        $("#btnChooseD").click(function () {
+            clickAnswer("chooseD")
+        })
+        $("#btnPreQuest").click(function () {
+            preQuest()
+        })
+        $("#btnNextQuest").click(function () {
+            nextQuest()
+        })
+    })
+</script>
+</body>
+</html>
